@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#E85403" />
+    <meta
+      name="description"
+      content="Foxy Esfirras — sabor de outro mundo. Esfirras artesanais na Escola Kennedy, salas gêmeas, Bloco 2."
+    />
+
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Assets críticos: começam a baixar junto com o HTML -->
+    <link rel="preload" as="image" href="/logo.webp" type="image/webp" fetchpriority="high" />
+    <link rel="preload" as="image" href="/noise.png" type="image/png" />
+    <link rel="preload" as="font" href="/fonts/anton-latin.woff2" type="font/woff2" crossorigin />
+    <link rel="preload" as="font" href="/fonts/outfit-latin.woff2" type="font/woff2" crossorigin />
+
+    <!-- Inicia o parse do JavaScript crítico antes do HTML terminar -->
+    <link rel="modulepreload" href="/src/main.tsx" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Foxy Esfirras · Sabor de Outro Mundo" />
+    <meta
+      property="og:description"
+      content="As melhores esfirras de outro mundo. Escola Kennedy, salas gêmeas, Bloco 2."
+    />
+    <meta property="og:image" content="/logo.png" />
+
+    <title>Foxy Esfirras · Sabor de Outro Mundo</title>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #e85403;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
