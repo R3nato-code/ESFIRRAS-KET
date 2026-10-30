@@ -28,8 +28,8 @@ type IdleCapableWindow = Window & {
 
 /* O chunk 3D tem ~900 KB. Baixar e executar isso junto com o primeiro paint
    atrasava o LCP e travava a thread. Agora ele entra somente depois que o
-   navegador já pintou a tela e está ocioso, com timeout generoso para não
-   competir com o carregamento inicial em dispositivos lentos. */
+   navegador já pintou a tela e está ocioso, com timeout curto para a cena
+   entrar rápido sem competir com o carregamento inicial. */
 function whenIdle(task: () => void) {
   const win = window as IdleCapableWindow
   let cancelled = false
@@ -38,17 +38,17 @@ function whenIdle(task: () => void) {
   }
 
   /* Só inicia depois do primeiro paint do documento. Se o navegador não
-     reportar paint, cai no timeout de 1200 ms para não travar para sempre. */
+     reportar paint, cai no timeout de 700 ms para não travar para sempre. */
   const start = () => {
     if (win.requestIdleCallback) {
-      const handle = win.requestIdleCallback(run, { timeout: 1200 })
+      const handle = win.requestIdleCallback(run, { timeout: 700 })
       return () => {
         cancelled = true
         win.cancelIdleCallback?.(handle)
       }
     }
 
-    const handle = window.setTimeout(run, 1200)
+    const handle = window.setTimeout(run, 700)
     return () => {
       cancelled = true
       window.clearTimeout(handle)
@@ -56,18 +56,19 @@ function whenIdle(task: () => void) {
   }
 
   if ('requestAnimationFrame' in window) {
+    let unsubscribe: (() => void) | undefined
     window.requestAnimationFrame(() => {
       if (cancelled) return
-      const unsubscribe = start()
-      ;(run as any)._unsubscribe = unsubscribe
+      unsubscribe = start()
     })
-  } else {
-    return start()
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
   }
 
-  return () => {
-    cancelled = true
-  }
+  return start()
 }
 
 type NetworkInformation = {

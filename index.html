@@ -18,8 +18,9 @@
     <link rel="preload" as="font" href="/fonts/anton-latin.woff2" type="font/woff2" crossorigin />
     <link rel="preload" as="font" href="/fonts/outfit-latin.woff2" type="font/woff2" crossorigin />
 
-    <!-- Inicia o parse do JavaScript crítico antes do HTML terminar -->
-    <link rel="modulepreload" href="/src/main.tsx" />
+    <!-- O preload do entry é injetado pelo Vite no build; apontar para
+         /src/main.tsx aqui fazia o build emitir o .tsx cru como asset
+         (servido com MIME vazio -> erro de module script). -->
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Foxy Esfirras · Sabor de Outro Mundo" />
