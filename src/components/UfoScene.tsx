@@ -22,13 +22,13 @@ const FRONT = { x: 360, y: 404, rx: 118, ry: 90, rotate: -1.5 }
 const CLUSTER_TOP = (LEFT.y - LEFT.ry * 1.035) / VIEW_H
 
 const CANDY_COLORS = [
-  '#f3c531',
-  '#e6492e',
-  '#3f7fd4',
-  '#4aa85a',
-  '#ef7a21',
-  '#b04bbf',
-  '#f6e7c8',
+  '#a5612f',
+  '#8f4f26',
+  '#b4713b',
+  '#7a3d1a',
+  '#5c2a0e',
+  '#c98b52',
+  '#e0c39a',
 ]
 
 const BEEF_COLORS = ['#a5612f', '#8f4f26', '#b4713b', '#7a3d1a', '#5c2a0e']
@@ -745,11 +745,11 @@ export default function EsfirrasSvg() {
           <stop offset="1" stopColor="#2A0F04" />
         </radialGradient>
 
-        {/* doce: brigadeiro de morango com confeitos */}
+        {/* salgada: recheio dourado de forno, no lugar do rosa */}
         <radialGradient id="esf-candy" cx="42%" cy="28%" r="82%">
-          <stop offset="0" stopColor="#F8C4C6" />
-          <stop offset=".48" stopColor="#DD7F8B" />
-          <stop offset="1" stopColor="#93404F" />
+          <stop offset="0" stopColor="#C87945" />
+          <stop offset=".48" stopColor="#925026" />
+          <stop offset="1" stopColor="#4A1F0B" />
         </radialGradient>
 
         {/* brilho especular */}

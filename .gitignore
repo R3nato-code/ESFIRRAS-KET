@@ -3,6 +3,9 @@ dist
 dist-ssr
 .opencode
 *.local
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
 *.log

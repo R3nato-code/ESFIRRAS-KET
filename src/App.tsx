@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import EntryScreen from './components/EntryScreen'
-import SoonScreen from './components/SoonScreen'
+import MenuScreen from './components/MenuScreen'
 
-type Screen = 'entry' | 'soon'
+type Screen = 'entry' | 'menu'
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('entry')
@@ -18,12 +18,12 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', sync)
   }, [])
 
-  /* A entrada fica montada (escondida) na tela "em breve": o canvas 3D e as
+  /* A entrada fica montada (escondida) na tela do cardápio: o canvas 3D e as
      texturas já preparadas são reaproveitados, então voltar é instantâneo. */
   return (
     <>
-      <EntryScreen hidden={screen === 'soon'} onEnter={() => setScreen('soon')} />
-      {screen === 'soon' && <SoonScreen onBack={() => setScreen('entry')} />}
+      <EntryScreen hidden={screen === 'menu'} onEnter={() => setScreen('menu')} />
+      {screen === 'menu' && <MenuScreen onBack={() => setScreen('entry')} />}
     </>
   )
 }
