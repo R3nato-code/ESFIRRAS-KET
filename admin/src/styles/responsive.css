@@ -1,0 +1,65 @@
+/* ==================================================================
+   Ajustes responsivos. O layout é fluido por padrão; aqui ficam
+   apenas as quebras que precisam de decisão explícita.
+   ================================================================== */
+
+/* ---------- Tablet ---------- */
+@media (max-width: 900px) {
+  :root {
+    --content-max: 100%;
+  }
+}
+
+/* ---------- Celular ---------- */
+@media (max-width: 640px) {
+  :root {
+    --header-height: 58px;
+  }
+
+  .app-bar {
+    gap: var(--space-3);
+    padding-inline: var(--space-4);
+  }
+
+  .brand__logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* O nome do projeto é útil, mas não pode empurrar a marca. */
+  .app-bar .badge {
+    max-width: 42vw;
+    font-size: 11px;
+  }
+
+  .page-head {
+    align-items: flex-start;
+  }
+
+  .grid-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+
+  .notice {
+    padding: var(--space-4);
+  }
+}
+
+/* ---------- Telas muito estreitas ---------- */
+@media (max-width: 380px) {
+  .brand__tag {
+    display: none;
+  }
+}
+
+/* ---------- Preferência por menos movimento ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .skip-link {
+    transition: none;
+  }
+}

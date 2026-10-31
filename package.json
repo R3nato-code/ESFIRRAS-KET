@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "deploy:rules": "npx firebase-tools deploy --only firestore:rules"
+    "test": "npm --prefix admin test",
+    "test:rules": "npm --prefix admin run test:rules",
+    "deploy:rules": "npx firebase-tools deploy --only firestore:rules",
+    "deploy:indexes": "npx firebase-tools deploy --only firestore:indexes",
+    "deploy:firestore": "npx firebase-tools deploy --only firestore"
   },
   "engines": {
     "node": ">=20.19"

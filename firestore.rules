@@ -1,38 +1,197 @@
 rules_version = '2';
 
+/* ==================================================================
+   FOXY ESFIRRAS — REGRAS DO FIRESTORE
+
+   Fonte da verdade: pedidos/{pedidoId} + historico/{registroId}.
+
+   Princípios:
+   - nega por padrão;
+   - o site só CRIA pedido pendente (sem ler nada);
+   - leitura restrita a admin autenticado (claim `admin == true`);
+   - mudança de status só com histórico criado no MESMO commit;
+   - histórico é append-only: update/delete sempre negados;
+   - pedido nunca é apagado (cancelar = status `cancelado`).
+   ================================================================== */
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Coleção de pedidos: cria e lê (para o cardápio/status).
-    // Ajuste para produção depois (ex.: exigir auth ou App Check).
-    match /pedidos/{pedidoId} {
-      allow create: if isValidOrder(request.resource.data);
-      allow read: if true;
-      // Não permite editar nem apagar pelo cliente.
-      allow update, delete: if false;
+    /* ---------------- Utilidades ---------------- */
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.get('admin', false) == true;
     }
 
-    // Bloqueia todo o resto por padrão.
+    // Mesma máquina de estados de admin/src/lib/orders.ts.
+    function isValidTransition(from, to) {
+      return (from == 'pendente' && to == 'em_preparacao')
+        || (from == 'em_preparacao' && to == 'pronto')
+        || (from == 'pronto' && to == 'entregue')
+        || (from == 'em_preparacao' && to == 'pendente')
+        || (from == 'pronto' && to == 'em_preparacao')
+        || (from == 'entregue' && to == 'pronto')
+        || (to == 'cancelado'
+            && (from == 'pendente'
+                || from == 'em_preparacao'
+                || from == 'pronto'));
+    }
+
+    // Retrocesso e cancelamento exigem motivo registrado.
+    function requiresReason(from, to) {
+      return to == 'cancelado'
+        || (from == 'em_preparacao' && to == 'pendente')
+        || (from == 'pronto' && to == 'em_preparacao')
+        || (from == 'entregue' && to == 'pronto');
+    }
+
+    /* ---------------- Pedidos ---------------- */
+
+    match /pedidos/{pedidoId} {
+
+      // O site cria com exatamente estes campos. Campos internos
+      // (statusUpdatedBy, lastHistoryId, updatedAt...) são recusados.
+      function isValidCreate(data) {
+        return data.keys().hasAll([
+            'items', 'customerName', 'pickupLocation',
+            'totalItems', 'totalAmount', 'status', 'createdAt'
+          ])
+          && data.keys().hasOnly([
+            'items', 'customerName', 'customerContact', 'notes',
+            'pickupLocation', 'totalItems', 'totalAmount',
+            'paymentMethod', 'status', 'createdAt'
+          ])
+          && data.items is list
+          && data.items.size() > 0
+          && data.items.size() <= 50
+          && data.customerName is string
+          && data.customerName.size() > 0
+          && data.customerName.size() <= 120
+          && data.pickupLocation is string
+          && data.pickupLocation.size() > 0
+          && data.pickupLocation.size() <= 120
+          && data.totalItems is int
+          && data.totalItems > 0
+          && data.totalItems <= 1000
+          && data.totalAmount is int
+          && data.totalAmount > 0
+          && data.totalAmount <= 5000000
+          && data.status == 'pendente'
+          && data.createdAt == request.time
+          && (!data.keys().hasAny(['notes'])
+              || (data.notes is string && data.notes.size() <= 280))
+          && (!data.keys().hasAny(['customerContact'])
+              || (data.customerContact is string
+                  && data.customerContact.size() <= 20))
+          && (!data.keys().hasAny(['paymentMethod'])
+              || data.paymentMethod in ['pix', 'dinheiro', 'cartao']);
+      }
+
+      // Só os campos de controle podem mudar, e o autor é quem escreve.
+      function isValidStatusUpdateShape() {
+        let before = resource.data;
+        let after = request.resource.data;
+
+        return before.keys().hasAll(['status'])
+          && after.keys().hasAll([
+            'status', 'updatedAt', 'statusUpdatedAt',
+            'statusUpdatedBy', 'lastHistoryId'
+          ])
+          && after.diff(before).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'statusUpdatedAt',
+            'statusUpdatedBy', 'lastHistoryId'
+          ])
+          && after.status is string
+          && after.status != before.status
+          && isValidTransition(before.status, after.status)
+          && after.updatedAt == request.time
+          && after.statusUpdatedAt == request.time
+          && after.statusUpdatedBy is map
+          && after.statusUpdatedBy.keys().hasAll(['uid', 'email'])
+          && after.statusUpdatedBy.keys().hasOnly(['uid', 'email'])
+          && after.statusUpdatedBy.uid == request.auth.uid
+          && after.statusUpdatedBy.email is string
+          && after.statusUpdatedBy.email.size() <= 254
+          && after.lastHistoryId is string
+          && after.lastHistoryId.size() > 0
+          && after.lastHistoryId.size() <= 120;
+      }
+
+      // O lastHistoryId precisa apontar para um registro NOVO, criado
+      // no mesmo commit, coerente com o status anterior e o novo.
+      function hasMatchingHistory() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let historyPath =
+          /databases/$(database)/documents/pedidos/$(pedidoId)/historico/$(after.lastHistoryId);
+        let history = getAfter(historyPath);
+
+        return existsAfter(historyPath)
+          && history.data.pedidoId == pedidoId
+          && history.data.fromStatus == before.status
+          && history.data.toStatus == after.status
+          && history.data.changedAt == request.time
+          && history.data.changedBy.uid == request.auth.uid;
+      }
+
+      allow create: if isValidCreate(request.resource.data);
+      allow read: if isAdmin();
+      allow update: if isAdmin()
+        && isValidStatusUpdateShape()
+        && hasMatchingHistory();
+      allow delete: if false;
+
+      /* ---------------- Histórico (append-only) ---------------- */
+
+      match /historico/{historyId} {
+
+        function isValidHistoryCreate() {
+          let data = request.resource.data;
+          let orderBeforeDoc =
+            get(/databases/$(database)/documents/pedidos/$(pedidoId));
+          let orderAfterDoc =
+            getAfter(/databases/$(database)/documents/pedidos/$(pedidoId));
+
+          return orderBeforeDoc != null
+            && orderAfterDoc != null
+            && orderAfterDoc.data.lastHistoryId == historyId
+            && data.keys().hasAll([
+              'pedidoId', 'fromStatus', 'toStatus', 'changedAt', 'changedBy'
+            ])
+            && data.keys().hasOnly([
+              'pedidoId', 'fromStatus', 'toStatus',
+              'changedAt', 'changedBy', 'reason'
+            ])
+            && data.pedidoId == pedidoId
+            && data.fromStatus == orderBeforeDoc.data.status
+            && data.toStatus == orderAfterDoc.data.status
+            && isValidTransition(orderBeforeDoc.data.status, data.toStatus)
+            && data.changedAt == request.time
+            && data.changedBy is map
+            && data.changedBy.keys().hasAll(['uid', 'email'])
+            && data.changedBy.keys().hasOnly(['uid', 'email'])
+            && data.changedBy.uid == request.auth.uid
+            && data.changedBy.email is string
+            && data.changedBy.email.size() <= 254
+            && (!data.keys().hasAny(['reason'])
+                || (data.reason is string
+                    && data.reason.size() <= 280))
+            && (!requiresReason(orderBeforeDoc.data.status, data.toStatus)
+                || (data.keys().hasAny(['reason'])
+                    && data.reason is string
+                    && data.reason.size() >= 3));
+        }
+
+        allow read: if isAdmin();
+        allow create: if isAdmin() && isValidHistoryCreate();
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------------- Nada mais é acessível ---------------- */
     match /{document=**} {
       allow read, write: if false;
     }
-  }
-
-  // Validação mínima do pedido: campos obrigatórios com os tipos certos.
-  function isValidOrder(data) {
-    return data.keys().hasAll([
-        'items', 'customerName', 'pickupLocation',
-        'totalItems', 'totalAmount', 'status', 'createdAt'
-      ])
-      && data.items is list
-      && data.items.size() > 0
-      && data.customerName is string
-      && data.customerName.size() > 0
-      && data.pickupLocation is string
-      && data.totalItems is int
-      && data.totalItems > 0
-      && data.totalAmount is int
-      && data.totalAmount > 0
-      && data.status is string;
   }
 }

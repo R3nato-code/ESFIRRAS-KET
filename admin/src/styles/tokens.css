@@ -1,0 +1,133 @@
+/* ==================================================================
+   FOXY ESFIRRAS — PAINEL DE PEDIDOS
+   Tokens de design. Fonte única de cores, espaçamentos e tipografia.
+   Nenhum componente deve escrever cor "na mão": use as variáveis.
+   ================================================================== */
+
+/* Fonte self-hosted (subset latin), servida pelo próprio painel. */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/outfit-latin.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+
+  /* ---------- Marca ---------- */
+  --brand: #e85403;
+  --brand-strong: #c24302;
+  --brand-contrast: #ffffff;
+  --brand-soft: #fdeee4;
+  --brand-ring: rgba(232, 84, 3, 0.32);
+
+  /* ---------- Texto ---------- */
+  --ink: #241207;
+  --ink-soft: #5f4c3f;
+  --ink-muted: #8b7970;
+  --ink-inverse: #fff8f2;
+
+  /* ---------- Superfícies ---------- */
+  --bg: #f6f4f1;
+  --surface: #ffffff;
+  --surface-muted: #faf8f5;
+  --surface-sunken: #f1ece6;
+  --border: #e8e0d7;
+  --border-strong: #d8ccbe;
+
+  /* ---------- Status do pedido ----------
+     Pares (texto / fundo) com contraste AA sobre o fundo do badge. */
+  --status-pendente: #9a4a04;
+  --status-pendente-bg: #fdf0d5;
+  --status-pendente-border: #f2d49b;
+
+  --status-em-preparacao: #1d4ed8;
+  --status-em-preparacao-bg: #e3ecff;
+  --status-em-preparacao-border: #bcd0fb;
+
+  --status-pronto: #14743a;
+  --status-pronto-bg: #dcf5e4;
+  --status-pronto-border: #a8e0bd;
+
+  --status-entregue: #4a5560;
+  --status-entregue-bg: #eef1f4;
+  --status-entregue-border: #d3dae1;
+
+  --status-cancelado: #a51f1f;
+  --status-cancelado-bg: #fde8e8;
+  --status-cancelado-border: #f3bdbd;
+
+  --status-desconhecido: #6b5a4d;
+  --status-desconhecido-bg: #f2eeea;
+  --status-desconhecido-border: #ddd2c8;
+
+  /* ---------- Feedback ---------- */
+  --success: #14743a;
+  --success-bg: #e8f7ee;
+  --warning: #9a4a04;
+  --warning-bg: #fdf3e0;
+  --danger: #a51f1f;
+  --danger-bg: #fdeaea;
+  --info: #1d4ed8;
+  --info-bg: #eaf1ff;
+
+  /* ---------- Tipografia ---------- */
+  --font-body: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.8125rem;  /* 13px */
+  --text-base: 0.9375rem;/* 15px */
+  --text-md: 1rem;       /* 16px */
+  --text-lg: 1.25rem;    /* 20px */
+  --text-xl: 1.5rem;     /* 24px */
+  --text-2xl: 2rem;      /* 32px */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ---------- Espaçamento (escala de 4px) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---------- Raios ---------- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* ---------- Sombras ---------- */
+  --shadow-xs: 0 1px 2px rgba(36, 18, 7, 0.06);
+  --shadow-sm: 0 1px 3px rgba(36, 18, 7, 0.08), 0 1px 2px rgba(36, 18, 7, 0.04);
+  --shadow-md: 0 8px 24px rgba(36, 18, 7, 0.08);
+  --shadow-lg: 0 24px 60px rgba(36, 18, 7, 0.16);
+
+  /* ---------- Foco ---------- */
+  --focus-ring: 0 0 0 3px var(--brand-ring);
+
+  /* ---------- Layout ---------- */
+  --header-height: 64px;
+  --sidebar-width: 248px;
+  --content-max: 1120px;
+  --tap-target: 44px;
+
+  /* ---------- Camadas ---------- */
+  --z-header: 20;
+  --z-drawer: 40;
+  --z-toast: 60;
+
+  /* ---------- Movimento ---------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 140ms var(--ease-out);
+  --transition-base: 220ms var(--ease-out);
+}

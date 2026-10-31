@@ -3,6 +3,16 @@ import { createPortal } from 'react-dom'
 import { categoryLabels, menu } from '../data/menu'
 import { Instagram, MapPin, Minus, Plus, Sparkle, Check, CheckCircle, AlertCircle, Loader2, X } from './icons'
 import { db, collection, addDoc, serverTimestamp } from '../lib/firebase'
+import {
+  MAX_CONTACT_LENGTH,
+  PAYMENT_LABELS,
+  PAYMENT_OPTIONS,
+  buildOrderDocument,
+  isContactValid,
+  sanitizeContact,
+  type OrderItemSnapshot,
+  type PaymentMethod,
+} from '../lib/orderForm'
 
 const MAX_PER_FLAVOR = 20
 
@@ -14,31 +24,17 @@ interface ConfirmedOrder {
   customerName: string
   totalItems: number
   totalAmount: number
+  paymentMethod?: PaymentMethod
 }
 
-interface OrderItem {
-  id: string
-  name: string
-  category: 'salgadas' | 'doces'
-  quantity: number
-  unitPrice: number
-  totalPrice: number
-}
-
-interface OrderData {
-  items: OrderItem[]
-  customerName: string
-  notes: string
-  pickupLocation: string
-  totalItems: number
-  totalAmount: number
-  status: string
-  createdAt: ReturnType<typeof serverTimestamp>
-}
+type OrderItem = OrderItemSnapshot
 
 export default function OrderSection() {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [name, setName] = useState('')
+  const [contact, setContact] = useState('')
+  const [contactTouched, setContactTouched] = useState(false)
+  const [payment, setPayment] = useState<PaymentMethod | ''>('')
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<OrderStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
@@ -46,6 +42,7 @@ export default function OrderSection() {
   const successActionRef = useRef<HTMLButtonElement>(null)
   const successCardRef = useRef<HTMLDivElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const contactInputRef = useRef<HTMLInputElement>(null)
 
   /* Mensagem de confirmação: foco no botão principal, Escape fecha e o Tab
      fica contido no diálogo enquanto ele está aberto. */
@@ -109,11 +106,15 @@ export default function OrderSection() {
   const totalItems = orderItems.reduce((sum, item) => sum + item.quantity, 0)
   const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0)
 
+  const contactInvalid = contactTouched && !isContactValid(contact)
+
   const message = [
     'Olá! Quero encomendar na Foxy Esfirras:',
     ...selected.map((item) => `• ${quantities[item.id]}x ${item.name}`),
     `Total: ${totalItems} ${totalItems === 1 ? 'esfirra' : 'esfirras'}`,
     name.trim() ? `Nome: ${name.trim()}` : '',
+    contact.trim() ? `Contato: ${contact.trim()}` : '',
+    payment ? `Pagamento: ${PAYMENT_LABELS[payment]}` : '',
     notes.trim() ? `Observação: ${notes.trim()}` : '',
   ]
     .filter(Boolean)
@@ -141,6 +142,9 @@ export default function OrderSection() {
     if (status === 'loading') return
     setQuantities({})
     setName('')
+    setContact('')
+    setContactTouched(false)
+    setPayment('')
     setNotes('')
     setStatus('idle')
     setStatusMessage('')
@@ -163,20 +167,32 @@ export default function OrderSection() {
       return
     }
 
+    // Contato é opcional: só valida quando algo foi digitado.
+    if (!isContactValid(contact)) {
+      setContactTouched(true)
+      setStatus('error')
+      setStatusMessage('Confira o telefone: informe DDD e número (10 ou 11 dígitos).')
+      contactInputRef.current?.focus()
+      return
+    }
+
     setStatus('loading')
     setStatusMessage('Enviando pedido...')
 
     try {
-      const orderData: OrderData = {
-        items: orderItems,
-        customerName: name.trim(),
-        notes: notes.trim(),
-        pickupLocation: PICKUP_LOCATION,
-        totalItems,
-        totalAmount,
-        status: 'pendente',
-        createdAt: serverTimestamp(),
-      }
+      const orderData = buildOrderDocument(
+        {
+          items: orderItems,
+          customerName: name,
+          customerContact: contact,
+          paymentMethod: payment || undefined,
+          notes,
+          pickupLocation: PICKUP_LOCATION,
+          totalItems,
+          totalAmount,
+        },
+        serverTimestamp(),
+      )
 
       // 🔍 LOG: Dados que serão enviados
       console.log('📤 Enviando pedido para Firestore:', {
@@ -197,11 +213,15 @@ export default function OrderSection() {
         customerName: name.trim(),
         totalItems,
         totalAmount,
+        ...(payment ? { paymentMethod: payment } : {}),
       })
 
       // Limpa o formulário após sucesso
       setQuantities({})
       setName('')
+      setContact('')
+      setContactTouched(false)
+      setPayment('')
       setNotes('')
     } catch (error) {
       // 🔍 LOG: Erro detalhado
@@ -335,6 +355,65 @@ export default function OrderSection() {
             </label>
 
             <label className="order__field">
+              <span>
+                WhatsApp / telefone <em>opcional</em>
+              </span>
+              <input
+                className="order__input"
+                type="tel"
+                name="contato"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={MAX_CONTACT_LENGTH}
+                placeholder="(41) 99999-9999"
+                value={contact}
+                onChange={(event) => setContact(sanitizeContact(event.target.value))}
+                onBlur={() => setContactTouched(true)}
+                disabled={status === 'loading'}
+                aria-describedby="order-contact-hint"
+                aria-invalid={contactInvalid || undefined}
+                ref={contactInputRef}
+              />
+              <small
+                id="order-contact-hint"
+                className={`order__hint${contactInvalid ? ' is-error' : ''}`}
+                aria-live="polite"
+              >
+                {contactInvalid
+                  ? 'Confira o número: use DDD + telefone (10 ou 11 dígitos).'
+                  : 'Só usamos para avisar sobre o pedido.'}
+              </small>
+            </label>
+
+            <div className="order__field order__field--wide">
+              <span id="order-payment-label">
+                Forma de pagamento <em>opcional</em>
+              </span>
+              <div
+                className="order__payments"
+                role="radiogroup"
+                aria-labelledby="order-payment-label"
+              >
+                {PAYMENT_OPTIONS.map((option) => (
+                  <label
+                    key={option.value || 'a-combinar'}
+                    className={`order__payment${payment === option.value ? ' is-active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="pagamento"
+                      value={option.value}
+                      checked={payment === option.value}
+                      onChange={() => setPayment(option.value)}
+                      disabled={status === 'loading'}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="order__field order__field--wide">
               <span>
                 Observações <em>opcional</em>
               </span>
@@ -502,7 +581,9 @@ export default function OrderSection() {
                 foi registrado e já está com a gente.
               </p>
 
-              <dl className="order-success__meta">
+              <dl
+                className={`order-success__meta${confirmedOrder.paymentMethod ? ' order-success__meta--three' : ''}`}
+              >
                 <div>
                   <dt>Total</dt>
                   <dd>{formatPrice(confirmedOrder.totalAmount)}</dd>
@@ -511,6 +592,12 @@ export default function OrderSection() {
                   <dt>Retirada</dt>
                   <dd>Escola Kennedy · Bloco 2</dd>
                 </div>
+                {confirmedOrder.paymentMethod && (
+                  <div>
+                    <dt>Pagamento</dt>
+                    <dd>{PAYMENT_LABELS[confirmedOrder.paymentMethod]}</dd>
+                  </div>
+                )}
               </dl>
 
               <button

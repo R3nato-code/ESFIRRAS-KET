@@ -2289,6 +2289,85 @@ html.is-hidden .menu *::after {
   text-transform: none;
 }
 
+/* Ocupa a linha inteira do grid de campos (pagamento e observações). */
+.order__field--wide {
+  grid-column: 1 / -1;
+}
+
+.order__hint {
+  color: rgba(255, 240, 208, 0.38);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+.order__hint.is-error {
+  color: #ffa48c;
+}
+
+.order__payments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.order__payment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 220, 160, 0.16);
+  border-radius: 12px;
+  background: rgba(10, 4, 2, 0.42);
+  color: rgba(255, 240, 208, 0.66);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+/* O input real fica invisível por cima do pill: continua acessível
+   por teclado e por leitores de tela, sem perder a área de toque. */
+.order__payment input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.order__payment:hover {
+  border-color: rgba(255, 201, 74, 0.35);
+  color: rgba(255, 240, 208, 0.9);
+}
+
+.order__payment.is-active {
+  border-color: rgba(255, 201, 74, 0.55);
+  background: rgba(255, 201, 74, 0.12);
+  color: #ffecc4;
+  box-shadow: 0 0 0 3px rgba(255, 201, 74, 0.08);
+}
+
+.order__payment:has(input:focus-visible) {
+  outline: 2px solid rgba(255, 201, 74, 0.7);
+  outline-offset: 2px;
+}
+
+.order__payment:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .order__input,
 .order__textarea {
   width: 100%;
@@ -3420,6 +3499,11 @@ html.is-hidden .menu *::after {
 
 .order-success__meta div {
   min-width: 0;
+}
+
+/* Três informações (quando há pagamento) quebram sozinhas em telas estreitas. */
+.order-success__meta--three {
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
 }
 
 .order-success__meta dt {
