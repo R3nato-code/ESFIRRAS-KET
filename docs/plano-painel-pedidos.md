@@ -1,6 +1,6 @@
 # Plano — Painel Administrativo de Pedidos | Foxy Esfirras
 
-**Status:** em execução — Fases 1 a 3 concluídas (regras publicadas)  
+**Status:** Fases 1 a 7 implementadas; Fase 8 parcialmente concluída (builds e testes unitários locais aprovados; deploy pendente)
 **Data:** 31/10/2026  
 **Repositório:** `R3nato-code/ESFIRRAS-KET`  
 **Projeto Firebase:** `esfirra-ket`
@@ -931,35 +931,39 @@ Observação de ambiente: o Firebase CLI 15 exige **Java 21+** para o emulador
 - [ ] Criar toast de novo pedido.
 - [ ] Criar estados vazios.
 
-### Fase 7 — Detalhe e histórico
+### Fase 7 — Detalhe e histórico ✅ implementada em 31/10/2026
 
-- [ ] Criar drawer de detalhe.
-- [ ] Exibir dados do cliente, contato, itens, totais, pagamento e observações.
-- [ ] Criar ações de status.
-- [ ] Criar confirmação para cancelar/retroceder/entregar.
-- [ ] Exigir motivo quando necessário.
-- [ ] Criar transação com histórico.
-- [ ] Criar linha do tempo.
-- [ ] Criar evento inicial sintético.
-- [ ] Atualizar em tempo real.
-- [ ] Tratar conflitos de concorrência.
+- [x] Criar drawer de detalhe.
+- [x] Exibir dados do cliente, contato, itens, totais, pagamento e observações.
+- [x] Criar ações de status.
+- [x] Criar confirmação para cancelar/retroceder/entregar.
+- [x] Exigir motivo quando necessário.
+- [x] Criar transação com histórico.
+- [x] Criar linha do tempo.
+- [x] Criar evento inicial sintético (somente visual; não grava dados legados).
+- [x] Atualizar em tempo real (lista, documento aberto e histórico via listeners do Firestore).
+- [x] Tratar conflitos de concorrência (revalidação transacional e mensagem para recarregar/confirmar).
 
-### Fase 8 — Polimento e entrega
+Implementação: `admin/src/components/OrderDetailDrawer.tsx`, integração na tabela e nos cards do dashboard e estilos do drawer. O serviço `orderService.ts` já fornece transação atômica e subscription do histórico.
 
-- [ ] Revisar responsividade.
-- [ ] Revisar acessibilidade.
-- [ ] Revisar mensagens de erro.
-- [ ] Rodar build do site.
-- [ ] Rodar build do admin.
-- [ ] Rodar testes unitários.
-- [ ] Rodar testes de regras (se Java disponível).
-- [ ] Testar fluxo completo em ambiente de teste.
-- [ ] Criar serviço no Render.
-- [ ] Configurar variáveis.
+### Fase 8 — Polimento e entrega (parcial)
+
+- [x] Revisar responsividade do drawer e ações em telas estreitas.
+- [x] Revisar acessibilidade básica (rótulos, diálogo, teclado/Escape, foco visível e áreas de toque).
+- [x] Revisar mensagens de erro e feedback das ações.
+- [x] Rodar build do site — aprovado.
+- [x] Rodar build do admin — aprovado.
+- [x] Rodar testes unitários — 75/75 aprovados.
+- [ ] Rodar testes de regras nesta sessão — Java disponível é 1.8; emulador Firebase CLI atual requer Java 21+.
+- [ ] Testar fluxo completo em ambiente de teste com sessão real de admin.
+- [ ] Criar/confirmar serviço no Render.
+- [ ] Configurar variáveis no serviço do admin.
 - [ ] Publicar.
-- [ ] Adicionar domínio ao Firebase Auth.
-- [ ] Atualizar README.
-- [ ] Fazer smoke test em produção.
+- [ ] Adicionar domínio efetivo do admin ao Firebase Auth e validar API key/referrer.
+- [x] Atualizar README com setup, segurança e deploy do admin.
+- [ ] Fazer smoke test em produção após publicação.
+
+Resultado local desta execução: `npm --prefix admin run build` aprovado; `npm --prefix admin test` aprovado (4 arquivos, 75 testes); `npm run build` do site aprovado com aviso já emitido pelo Vite sobre chunk 3D acima de 900 kB. Não foi feito deploy nem alteração remota de Firebase/Render.
 
 ---
 

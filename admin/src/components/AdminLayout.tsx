@@ -62,15 +62,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <span className="admin-nav__icon" aria-hidden="true">📋</span>
             Dashboard
           </a>
-          <a
-            href="#pedidos"
-            className="admin-nav__item"
-            aria-disabled="true"
-          >
-            <span className="admin-nav__icon" aria-hidden="true">📦</span>
-            Pedidos
-            <span className="admin-nav__item__badge">Em breve</span>
-          </a>
         </nav>
 
         <div className="admin-sidebar__user">

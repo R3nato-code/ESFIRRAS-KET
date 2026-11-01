@@ -52,6 +52,7 @@ export const MIN_REASON_LENGTH = 3
 export const MAX_REASON_LENGTH = 280
 
 export type OrdersListener = (orders: Order[]) => void
+export type OrderListener = (order: Order | null) => void
 export type HistoryListener = (entries: OrderHistoryEntry[]) => void
 export type ErrorListener = (error: AppErrorInfo) => void
 
@@ -99,6 +100,19 @@ export function subscribeOrders(
   return onSnapshot(
     query(collection(db, 'pedidos'), ...constraints),
     (snapshot) => onOrders(snapshot.docs.map(documentToOrder)),
+    (error) => onError?.(toAppError(error)),
+  )
+}
+
+/** Mantém o pedido aberto sincronizado mesmo quando ele sai do filtro da lista. */
+export function subscribeOrder(
+  orderId: string,
+  onOrder: OrderListener,
+  onError?: ErrorListener,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'pedidos', orderId),
+    (snapshot) => onOrder(snapshot.exists() ? mapOrderDoc(snapshot.id, snapshot.data()) : null),
     (error) => onError?.(toAppError(error)),
   )
 }

@@ -4,7 +4,7 @@
 
 Site de encomendas de esfirras em React + TypeScript + Vite, com pedidos gravados no Firestore do projeto Firebase `esfirra-ket` e deploy estático no Render.
 
-Está em desenvolvimento um **painel administrativo separado** para gerenciar os pedidos. O plano completo e aprovado está em:
+O repositório contém um **painel administrativo separado** em `admin/`. O plano completo e aprovado está em:
 
 **`docs/plano-painel-pedidos.md`**
 
@@ -13,10 +13,10 @@ Leia esse documento antes de alterar qualquer coisa relacionada a pedidos, Fires
 ## Estado atual
 
 - Site funcional na raiz do repositório.
-- Painel administrativo planejado para a pasta `admin/`, com deploy próprio.
-- Ainda não implementado.
-- Firestore atual: coleção `pedidos` com criação pública, leitura pública e update/delete bloqueados.
-- Ainda não existem autenticação, histórico, contato ou forma de pagamento.
+- Painel administrativo implementado em `admin/`, com login Firebase, dashboard, detalhe e histórico em tempo real.
+- Mudanças de status usam transação atômica e histórico append-only.
+- Regras Firestore restringem leitura a administradores; criação pública controlada; update/delete restritos.
+- Deploy independente no Render está descrito em `render.yaml`; criação/configuração do serviço e domínios ainda dependem de ação na conta.
 
 ## Invariantes que não devem ser quebradas
 

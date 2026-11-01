@@ -22,6 +22,7 @@ import {
 import { formatCurrency, formatDateTime, formatPhone, shortOrderId } from '../lib/format'
 import { useToast } from './Toast'
 import { ErrorState } from './ErrorState'
+import { OrderDetailDrawer } from './OrderDetailDrawer'
 
 export function Dashboard() {
   const { show: showToast } = useToast()
@@ -37,6 +38,7 @@ export function Dashboard() {
 
   // Dados do Firestore
   const [orders, setOrders] = useState<Order[]>([])
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [statusCounts, setStatusCounts] = useState<Record<OrderStatusValue, number>>({
     pendente: 0,
     em_preparacao: 0,
@@ -346,7 +348,17 @@ export function Dashboard() {
                       return (
                         <tr
                           key={order.id}
-                          className={isPending ? 'order-row--pending' : ''}
+                          className={isPending ? 'order-row--pending order-row--interactive' : 'order-row--interactive'}
+                          onClick={() => setSelectedOrder(order)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              setSelectedOrder(order)
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-label={`Abrir detalhes do pedido de ${order.customerName}`}
+                          aria-haspopup="dialog"
                         >
                           <td className="order-id-cell">{shortOrderId(order.id)}</td>
                           <td>{formatDateTime(order.createdAt)}</td>
@@ -386,9 +398,13 @@ export function Dashboard() {
                   const statusMeta = STATUS_META[order.status]
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={order.id}
                       className={`order-card ${isPending ? 'order-card--pending' : ''}`}
+                      onClick={() => setSelectedOrder(order)}
+                      aria-label={`Abrir detalhes do pedido de ${order.customerName}`}
+                      aria-haspopup="dialog"
                     >
                       <div className="order-card__header">
                         <span className="order-id-cell">{shortOrderId(order.id)}</span>
@@ -408,7 +424,7 @@ export function Dashboard() {
                         <span>{order.totalItems} itens ({order.paymentMethod ? order.paymentMethod.toUpperCase() : '—'})</span>
                         <strong>{formatCurrency(order.totalAmount)}</strong>
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -425,6 +441,9 @@ export function Dashboard() {
             </>
           )}
         </>
+      )}
+      {selectedOrder && (
+        <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
     </div>
   )

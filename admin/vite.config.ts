@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { pwaPlugin } from '../scripts/pwa-plugin.ts'
 import { fileURLToPath } from 'node:url'
 
 /* O painel é um app independente, mas reaproveita o .env da raiz no
@@ -31,7 +32,9 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [react(), pwaPlugin('foxy-pwa-admin-v1', [
+      '/logo.png', '/fonts/outfit-latin.woff2',
+    ])],
     envDir,
     build: {
       target: 'es2020',

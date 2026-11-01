@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { pwaPlugin } from './scripts/pwa-plugin.ts'
 
 /* Chaves exigidas pelo app (Firebase Web SDK). */
 const REQUIRED_ENV = [
@@ -26,7 +27,12 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [react(), pwaPlugin('foxy-pwa-site-v1', [
+      '/logo.png', '/logo.webp', '/noise.png',
+      '/fonts/anton-latin.woff2', '/fonts/outfit-latin.woff2',
+      '/menu/carne-queijo.webp', '/menu/carne.webp',
+      '/menu/chocolate-granulado.webp', '/menu/chocolate-mm.webp', '/menu/prestigio.webp',
+    ])],
     build: {
       target: 'es2020',
       cssMinify: 'lightningcss',
