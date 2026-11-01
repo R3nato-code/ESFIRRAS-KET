@@ -50,6 +50,7 @@ export function OrderDetailDrawer({ order, onClose }: Props) {
   const [actionFromStatus, setActionFromStatus] = useState<Order['status'] | null>(null)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const [reloadRequested, setReloadRequested] = useState(false)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -122,6 +123,7 @@ export function OrderDetailDrawer({ order, onClose }: Props) {
       })
       setPendingAction(null)
       setReason('')
+      setReloadRequested(true)
     } catch (error) {
       const appError = toAppError(error)
       showToast({
@@ -158,6 +160,7 @@ export function OrderDetailDrawer({ order, onClose }: Props) {
       }, { uid: user.uid, email: user.email })
       showToast({ title: 'Status atualizado', message: statusLabel(action.to), type: 'success' })
       setPendingAction(null)
+      setReloadRequested(true)
     } catch (error) {
       const appError = toAppError(error)
       showToast({ title: appError.title, message: appError.message, type: 'error' })
@@ -187,6 +190,19 @@ export function OrderDetailDrawer({ order, onClose }: Props) {
           <button className="btn btn--ghost" type="button" onClick={onClose}
             aria-label="Fechar detalhes">✕</button>
         </header>
+
+        {reloadRequested && (
+          <div className="order-reload-prompt" role="status" aria-live="polite">
+            <div>
+              <strong>Operação concluída.</strong>
+              <p>Atualize a página para recarregar o painel.</p>
+            </div>
+            <button type="button" className="btn btn--primary"
+              onClick={() => window.location.reload()}>
+              Atualizar página
+            </button>
+          </div>
+        )}
 
         <div className="order-drawer__body">
           <section className="detail-section">

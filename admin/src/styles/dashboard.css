@@ -476,3 +476,17 @@
 }
 
 .order-drawer { position: relative; }
+
+.order-reload-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--brand-soft);
+  border-bottom: 1px solid var(--brand-ring);
+}
+.order-reload-prompt strong { display: block; font-size: var(--text-sm); color: var(--ink); }
+.order-reload-prompt p { margin-top: 3px; font-size: var(--text-xs); color: var(--ink-soft); }
+
