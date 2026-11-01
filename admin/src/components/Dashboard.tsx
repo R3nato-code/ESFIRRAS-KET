@@ -1,431 +1,294 @@
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ORDER_STATUSES,
   STATUS_META,
   type Order,
   type OrderStatusValue,
-} from '../lib/orders'
-import {
-  subscribeOrders,
-  fetchStatusCounts,
-  DEFAULT_PAGE_SIZE,
-} from '../lib/orderService'
-import {
-  filterOrders,
-  sortOrders,
-  PERIOD_OPTIONS,
-  SORT_OPTIONS,
-  type PeriodPreset,
-  type OrderSort,
-  type OrderStatusFilter,
-} from '../lib/query'
-import { formatCurrency, formatDateTime, formatPhone, shortOrderId } from '../lib/format'
-import { useToast } from './Toast'
-import { ErrorState } from './ErrorState'
+} from '../lib/orders';
+import { fetchStatusCounts, subscribeOrders } from '../lib/orderService';
+import { orderMatchesSearch, resolvePeriodRange } from '../lib/query';
+import { OrderList } from './OrdersTable';
+import { OrderCard } from './OrderCard';
+import { OrderDetailDrawer } from './OrderDetailDrawer';
+import { ErrorState } from './ErrorState';
+
+const INITIAL_PAGE_SIZE = 50;
+const PAGE_INCREMENT = 50;
 
 export function Dashboard() {
-  const { show: showToast } = useToast()
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [counts, setCounts] = useState<Record<OrderStatusValue, number>>(
+    () =>
+      ({
+        ...Object.fromEntries(ORDER_STATUSES.map((status) => [status, 0])),
+        desconhecido: 0,
+      }) as Record<OrderStatusValue, number>,
+  );
 
-  // Estados de consulta e filtros
-  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('todos')
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('today')
-  const [customStart, setCustomStart] = useState<string>('')
-  const [customEnd, setCustomEnd] = useState<string>('')
-  const [searchTerm, setSearchTerm] = useState<string>('')
-  const [sortBy, setSortBy] = useState<OrderSort>('recent')
-  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [statusFilter, setStatusFilter] = useState<OrderStatusValue | 'todos'>('todos');
+  const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [pageSize, setPageSize] = useState(INITIAL_PAGE_SIZE);
+  const [error, setError] = useState<string | null>(null);
 
-  // Dados do Firestore
-  const [orders, setOrders] = useState<Order[]>([])
-  const [statusCounts, setStatusCounts] = useState<Record<OrderStatusValue, number>>({
-    pendente: 0,
-    em_preparacao: 0,
-    pronto: 0,
-    entregue: 0,
-    cancelado: 0,
-    desconhecido: 0,
-  })
-  const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
-  const [, startTransition] = useTransition()
+  // Bordas do período em horário de Brasília (evita deslocamento de um
+  // dia ao interpretar `input[type=date]` como UTC).
+  const period = useMemo(
+    () => resolvePeriodRange('custom', { startDate, endDate }),
+    [startDate, endDate],
+  );
 
-  // Referência para detectar novos pedidos (toast)
-  const knownOrderIdsRef = useRef<Set<string>>(new Set())
-  const isInitialLoadRef = useRef<boolean>(true)
-
-  // Carrega contagens de status
+  // Lista em tempo real. Filtros de status/período rodam no servidor.
   useEffect(() => {
-    let active = true
-    fetchStatusCounts()
-      .then((counts) => {
-        if (active) {
-          setStatusCounts({
-            ...counts,
-            desconhecido: 0,
-          })
-        }
-      })
-      .catch(() => {
-        // Falhas pontuais nas contagens não travam o dashboard
-      })
-
-    const interval = setInterval(() => {
-      fetchStatusCounts()
-        .then((counts) => {
-          if (active) {
-            setStatusCounts({
-              ...counts,
-              desconhecido: 0,
-            })
-          }
-        })
-        .catch(() => {})
-    }, 30000)
-
-    return () => {
-      active = false
-      clearInterval(interval)
-    }
-  }, [])
-
-  // Sincroniza em tempo real com base no período e status selecionados
-  useEffect(() => {
-    setLoading(true)
-    setError(null)
-
-    // Calcula startAt/endAt se necessário para a query do Firestore
-    let startAtDate: Date | null = null
-    let endAtDate: Date | null = null
-
-    const now = new Date()
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const dayMs = 24 * 60 * 60 * 1000
-
-    if (periodPreset === 'today') {
-      startAtDate = todayStart
-      endAtDate = new Date(todayStart.getTime() + dayMs - 1)
-    } else if (periodPreset === '7d') {
-      startAtDate = new Date(todayStart.getTime() - 6 * dayMs)
-      endAtDate = new Date(todayStart.getTime() + dayMs - 1)
-    } else if (periodPreset === '30d') {
-      startAtDate = new Date(todayStart.getTime() - 29 * dayMs)
-      endAtDate = new Date(todayStart.getTime() + dayMs - 1)
-    } else if (periodPreset === 'custom') {
-      if (customStart) startAtDate = new Date(`${customStart}T00:00:00`)
-      if (customEnd) endAtDate = new Date(`${customEnd}T23:59:59`)
-    }
-
-    const unsubscribe = subscribeOrders(
+    return subscribeOrders(
       {
         status: statusFilter,
-        startAt: startAtDate,
-        endAt: endAtDate,
+        startAt: period.start,
+        endAt: period.end,
         pageSize,
       },
-      (fetchedOrders) => {
-        startTransition(() => {
-          // Detecta novos pedidos para o Toast
-          if (!isInitialLoadRef.current) {
-            const newOrders = fetchedOrders.filter(
-              (o) => !knownOrderIdsRef.current.has(o.id),
-            )
-            if (newOrders.length > 0) {
-              const latest = newOrders[0]
-              showToast({
-                title: 'Novo pedido recebido! 🍕',
-                message: `${latest.customerName} (${formatCurrency(latest.totalAmount)})`,
-                type: 'success',
-              })
-            }
-          }
+      (nextOrders) => {
+        setOrders(nextOrders);
+        setError(null);
+      },
+      (err) => setError(err.message || 'Erro ao carregar pedidos'),
+    );
+  }, [statusFilter, period.start, period.end, pageSize]);
 
-          // Atualiza conjunto conhecido
-          knownOrderIdsRef.current = new Set(fetchedOrders.map((o) => o.id))
-          isInitialLoadRef.current = false
+  // Contagens são totais gerais por status. Recarregam quando a lista
+  // muda (novo pedido ou status alterado) com debounce para não disparar
+  // cinco consultas a cada evento.
+  const ordersSignature = orders
+    .map((order) => `${order.id}:${order.status}`)
+    .join('|');
 
-          setOrders(fetchedOrders)
-          setLoading(false)
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      fetchStatusCounts()
+        .then((nextCounts) => {
+          if (cancelled) return;
+          setCounts((previous) => ({
+            ...previous,
+            ...nextCounts,
+            desconhecido: previous.desconhecido,
+          }));
         })
-      },
-      (err) => {
-        setError(err.message)
-        setLoading(false)
-      },
-    )
+        .catch(() => {
+          // Contagens são complementares: a lista continua funcionando.
+        });
+    }, 500);
 
     return () => {
-      unsubscribe()
-    }
-  }, [statusFilter, periodPreset, customStart, customEnd, pageSize, showToast])
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [ordersSignature]);
 
-  // Filtra localmente por busca e ordena
-  const filteredOrders = filterOrders(orders, {
-    status: statusFilter,
-    period: periodPreset,
-    startDate: customStart,
-    endDate: customEnd,
-    search: searchTerm,
-  })
+  const filteredOrders = orders.filter((order) =>
+    orderMatchesSearch(order, search),
+  );
 
-  const sortedOrders = sortOrders(filteredOrders, sortBy)
-  const totalGeneralCount = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+  const handleLoadMore = useCallback(() => {
+    setPageSize((previous) => previous + PAGE_INCREMENT);
+  }, []);
+
+  const handleSelect = useCallback((order: Order) => {
+    setSelectedOrder(order);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setSelectedOrder(null);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setStatusFilter('todos');
+    setSearch('');
+    setStartDate('');
+    setEndDate('');
+  }, []);
+
+  const hasActiveFilters =
+    statusFilter !== 'todos' ||
+    search.trim() !== '' ||
+    startDate !== '' ||
+    endDate !== '';
 
   return (
-    <div className="dashboard-page">
-      <section className="page-head">
+    <div className="dashboard">
+      <div className="page-head">
         <div>
-          <p className="eyebrow">Gestão operacional</p>
-          <h1 className="page-title">Painel de Pedidos</h1>
+          <div className="eyebrow">Foxy Esfirras · Pedidos</div>
+          <h1 className="page-title">Gestão de pedidos</h1>
           <p className="page-subtitle">
-            Acompanhe pedidos em tempo real, gerencie o fluxo de preparo e filtre por status ou período.
+            Acompanhe, filtre e altere o status dos pedidos em tempo real.
           </p>
         </div>
-      </section>
+      </div>
 
-      {/* Cards de Status (Indicadores) */}
+      {error && (
+        <ErrorState
+          title="Não foi possível carregar os pedidos"
+          message={error}
+          hint="Verifique se as regras do Firestore foram publicadas e se você está autenticado como admin."
+          onRetry={() => window.location.reload()}
+          retryLabel="Recarregar página"
+        />
+      )}
+
       <div className="status-cards">
-        <button
-          className={`status-card ${statusFilter === 'todos' ? 'status-card--active' : ''}`}
-          onClick={() => setStatusFilter('todos')}
-        >
-          <div className="status-card__header">
-            <span className="status-card__label">Todos</span>
-          </div>
-          <div className="status-card__count">{totalGeneralCount}</div>
-          <span className="status-card__desc">Geral no período</span>
-        </button>
-
         {ORDER_STATUSES.map((status) => {
-          const meta = STATUS_META[status]
-          const count = statusCounts[status] ?? 0
-          const isActive = statusFilter === status
+          const meta = STATUS_META[status];
+          const count = counts[status] ?? 0;
+          const isActive = statusFilter === status;
 
           return (
             <button
               key={status}
-              data-tone={status}
+              type="button"
               className={`status-card ${isActive ? 'status-card--active' : ''}`}
-              onClick={() => setStatusFilter(isActive ? 'todos' : status)}
+              data-tone={status}
+              aria-pressed={isActive}
+              onClick={() =>
+                setStatusFilter(isActive ? 'todos' : status)
+              }
             >
-              <div className="status-card__header">
+              <span className="status-card__header">
                 <span className="status-card__label">{meta.label}</span>
-              </div>
-              <div className="status-card__count">{count}</div>
-              <span className="status-card__desc">{meta.description}</span>
+              </span>
+              <span className="status-card__count">{count}</span>
+              <span className="status-card__desc">
+                {isActive ? 'Clique para ver todos' : meta.description}
+              </span>
             </button>
-          )
+          );
         })}
       </div>
 
-      {/* Barra de Filtros, Busca e Ordenação */}
       <div className="orders-toolbar">
         <div className="orders-toolbar__row">
           <div className="orders-search">
-            <span className="orders-search__icon" aria-hidden="true">🔍</span>
+            <span className="orders-search__icon" aria-hidden="true">
+              🔍
+            </span>
             <input
-              type="text"
+              type="search"
               className="orders-search__input"
-              placeholder="Buscar por cliente, telefone ou #ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Buscar pedidos"
+              placeholder="Buscar por nome, contato ou ID…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              aria-label="Buscar pedidos por nome, contato ou ID"
             />
           </div>
 
           <div className="orders-filter-group">
             <select
               className="orders-select"
-              value={periodPreset}
-              onChange={(e) => setPeriodPreset(e.target.value as PeriodPreset)}
-              aria-label="Filtrar por período"
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as OrderStatusValue | 'todos')
+              }
+              aria-label="Filtrar por status"
             >
-              {PERIOD_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  Período: {opt.label}
+              <option value="todos">Todos os status</option>
+              {ORDER_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {STATUS_META[status].label}
                 </option>
               ))}
             </select>
 
-            <select
-              className="orders-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as OrderSort)}
-              aria-label="Ordenar pedidos"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  Ordenar: {opt.label}
-                </option>
-              ))}
-            </select>
+            <div className="orders-custom-date">
+              <label>
+                De
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  aria-label="Data inicial"
+                />
+              </label>
+              <label>
+                até
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  aria-label="Data final"
+                />
+              </label>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={clearFilters}
+              >
+                Limpar filtros
+              </button>
+            )}
           </div>
         </div>
-
-        {periodPreset === 'custom' && (
-          <div className="orders-toolbar__row orders-custom-date">
-            <span>De:</span>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              aria-label="Data inicial"
-            />
-            <span>Até:</span>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              aria-label="Data final"
-            />
-          </div>
-        )}
       </div>
 
-      {/* Erro de conexão/permissão */}
-      {error && (
-        <ErrorState
-          title="Erro ao carregar pedidos"
-          message={error}
-          hint="Verifique sua conexão ou se as regras do Firestore estão publicadas."
-          onRetry={() => window.location.reload()}
-        />
-      )}
-
-      {/* Conteúdo principal: Tabela (Desktop) e Cards (Mobile) */}
-      {!error && (
-        <>
-          {loading && orders.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state__icon" aria-hidden="true">⏳</div>
-              <h2 className="empty-state__title">Carregando pedidos...</h2>
-              <p className="empty-state__text">Sincronizando com o Firestore em tempo real.</p>
-            </div>
-          ) : sortedOrders.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state__icon" aria-hidden="true">📭</div>
-              <h2 className="empty-state__title">Nenhum pedido encontrado</h2>
-              <p className="empty-state__text">
-                {searchTerm || statusFilter !== 'todos'
-                  ? 'Tente limpar a busca ou os filtros para ver mais resultados.'
-                  : 'Nenhum pedido registrado no período selecionado.'}
-              </p>
-              {(searchTerm || statusFilter !== 'todos') && (
-                <button
-                  className="btn btn--primary"
-                  onClick={() => {
-                    setSearchTerm('')
-                    setStatusFilter('todos')
-                  }}
-                >
-                  Limpar filtros
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Tabela Desktop */}
-              <div className="orders-table-wrapper">
-                <table className="orders-table">
-                  <thead>
-                    <tr>
-                      <th>Pedido</th>
-                      <th>Horário</th>
-                      <th>Cliente</th>
-                      <th>Contato</th>
-                      <th>Itens</th>
-                      <th>Total</th>
-                      <th>Pagamento</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedOrders.map((order) => {
-                      const isPending = order.status === 'pendente'
-                      const statusMeta = STATUS_META[order.status]
-
-                      return (
-                        <tr
-                          key={order.id}
-                          className={isPending ? 'order-row--pending' : ''}
-                        >
-                          <td className="order-id-cell">{shortOrderId(order.id)}</td>
-                          <td>{formatDateTime(order.createdAt)}</td>
-                          <td>
-                            <strong>{order.customerName}</strong>
-                          </td>
-                          <td>{formatPhone(order.customerContact)}</td>
-                          <td>{order.totalItems} it.</td>
-                          <td>
-                            <strong>{formatCurrency(order.totalAmount)}</strong>
-                          </td>
-                          <td>
-                            <span className="badge badge--neutral">
-                              {order.paymentMethod ? order.paymentMethod.toUpperCase() : '—'}
-                            </span>
-                          </td>
-                          <td>
-                            <span
-                              className="status-badge"
-                              data-status={order.status}
-                            >
-                              <span className="badge__dot" aria-hidden="true" />
-                              {statusMeta.label}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Cartões Mobile */}
-              <div className="orders-cards-list">
-                {sortedOrders.map((order) => {
-                  const isPending = order.status === 'pendente'
-                  const statusMeta = STATUS_META[order.status]
-
-                  return (
-                    <div
-                      key={order.id}
-                      className={`order-card ${isPending ? 'order-card--pending' : ''}`}
-                    >
-                      <div className="order-card__header">
-                        <span className="order-id-cell">{shortOrderId(order.id)}</span>
-                        <span className="status-badge" data-status={order.status}>
-                          <span className="badge__dot" aria-hidden="true" />
-                          {statusMeta.label}
-                        </span>
-                      </div>
-                      <div className="order-card__body">
-                        <div className="order-card__customer">{order.customerName}</div>
-                        <div className="order-card__meta">
-                          <span>📅 {formatDateTime(order.createdAt)}</span>
-                          <span>📞 {formatPhone(order.customerContact)}</span>
-                        </div>
-                      </div>
-                      <div className="order-card__footer">
-                        <span>{order.totalItems} itens ({order.paymentMethod ? order.paymentMethod.toUpperCase() : '—'})</span>
-                        <strong>{formatCurrency(order.totalAmount)}</strong>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Carregar Mais */}
-              <div className="orders-load-more">
-                <button
-                  className="btn"
-                  onClick={() => setPageSize((prev) => prev + 50)}
-                >
-                  Carregar mais pedidos (atual: {sortedOrders.length})
-                </button>
-              </div>
-            </>
+      {filteredOrders.length === 0 ? (
+        <div className="orders-empty">
+          <div className="orders-empty__icon" aria-hidden="true">
+            📭
+          </div>
+          <h2 className="orders-empty__title">Nenhum pedido encontrado</h2>
+          <p className="orders-empty__text">
+            {hasActiveFilters
+              ? 'Tente ajustar os filtros de busca, status ou período.'
+              : 'Ainda não há pedidos registrados.'}
+          </p>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={clearFilters}
+            >
+              Limpar filtros
+            </button>
           )}
+        </div>
+      ) : (
+        <>
+          <OrderList orders={filteredOrders} onSelectOrder={handleSelect} />
+
+          <div className="orders-cards-list">
+            {filteredOrders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onSelect={handleSelect}
+              />
+            ))}
+          </div>
+
+          <div className="orders-load-more">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={handleLoadMore}
+            >
+              Carregar mais ({pageSize} → {pageSize + PAGE_INCREMENT})
+            </button>
+          </div>
         </>
       )}
+
+      {selectedOrder && (
+        <OrderDetailDrawer
+          key={selectedOrder.id}
+          order={selectedOrder}
+          onClose={handleClose}
+        />
+      )}
     </div>
-  )
+  );
 }

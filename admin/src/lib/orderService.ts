@@ -126,6 +126,27 @@ export function subscribeOrderHistory(
   )
 }
 
+/**
+ * Um pedido específico em tempo real. Usado pelo drawer para refletir
+ * mudanças feitas por outro operador sem fechar/reabrir o detalhe.
+ * Documentos removidos são ignorados (delete é bloqueado pelas regras).
+ */
+export function subscribeOrder(
+  orderId: string,
+  onOrder: (order: Order) => void,
+  onError?: ErrorListener,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, 'pedidos', orderId),
+    (snapshot) => {
+      if (snapshot.exists()) {
+        onOrder(mapOrderDoc(snapshot.id, snapshot.data()))
+      }
+    },
+    (error) => onError?.(toAppError(error)),
+  )
+}
+
 /** Fallback da busca: quando o termo parece um ID completo. */
 export async function fetchOrderById(orderId: string): Promise<Order | null> {
   try {

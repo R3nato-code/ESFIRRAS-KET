@@ -20,6 +20,8 @@ export interface AppErrorInfo {
   title: string
   message: string
   hint?: string
+  /** Contexto extra (ex.: `{ currentStatus }` em conflito de transação). */
+  details?: Record<string, unknown>
 }
 
 export interface OrderServiceErrorOptions {
@@ -125,6 +127,7 @@ export function toAppError(error: unknown): AppErrorInfo {
       ...base,
       message: error.message || base.message,
       hint: error.hint ?? base.hint,
+      ...(error.details ? { details: error.details } : {}),
     }
   }
 
