@@ -3,13 +3,13 @@ import { createPortal } from 'react-dom'
 import { categoryLabels, menu } from '../data/menu'
 import { Instagram, MapPin, Minus, Plus, Sparkle, Check, CheckCircle, AlertCircle, Loader2, X } from './icons'
 import { db, collection, addDoc, serverTimestamp } from '../lib/firebase'
+import { formatPhoneNumber } from '../utils/mask'
 import {
   MAX_CONTACT_LENGTH,
   PAYMENT_LABELS,
   PAYMENT_OPTIONS,
   buildOrderDocument,
   isContactValid,
-  sanitizeContact,
   type OrderItemSnapshot,
   type PaymentMethod,
 } from '../lib/orderForm'
@@ -46,6 +46,7 @@ export default function OrderSection() {
 
   /* Mensagem de confirmação: foco no botão principal, Escape fecha e o Tab
      fica contido no diálogo enquanto ele está aberto. */
+
   useEffect(() => {
     if (!confirmedOrder) return
 
@@ -194,18 +195,8 @@ export default function OrderSection() {
         serverTimestamp(),
       )
 
-      // 🔍 LOG: Dados que serão enviados
-      console.log('📤 Enviando pedido para Firestore:', {
-        collection: 'pedidos',
-        data: JSON.parse(JSON.stringify(orderData, (key, value) =>
-          key === 'createdAt' ? 'serverTimestamp()' : value
-        ))
-      })
-
-      const docRef = await addDoc(collection(db, 'pedidos'), orderData)
-
-      // 🔍 LOG: Sucesso com ID do documento
-      console.log('✅ Pedido salvo com sucesso! Document ID:', docRef.id)
+      // Não registrar dados pessoais do pedido no console do navegador.
+      await addDoc(collection(db, 'pedidos'), orderData)
 
       setStatus('success')
       setStatusMessage('')
@@ -224,23 +215,18 @@ export default function OrderSection() {
       setPayment('')
       setNotes('')
     } catch (error) {
-      // 🔍 LOG: Erro detalhado
-      const err = error as Error & { code?: string; message?: string }
-      console.error('❌ Erro ao enviar pedido:', {
-        code: err.code,
-        message: err.message,
-        stack: err.stack,
-        fullError: error
-      })
+      // Registrar apenas um código técnico; nunca expor payload ou dados pessoais.
+      const err = error as Error & { code?: string }
+      const errorCode = err.code ?? 'unknown'
 
-      // Mensagem mais específica baseada no código do erro
+      // Mensagem específica sem revelar detalhes internos do Firebase.
       let userMessage = 'Não foi possível enviar o pedido. Tente novamente ou entre em contato pelo Instagram.'
-      if (err.code === 'permission-denied') {
+      if (errorCode === 'permission-denied') {
         userMessage = 'Permissão negada. Verifique as regras do Firestore no Console do Firebase.'
-      } else if (err.code === 'unavailable') {
+      } else if (errorCode === 'unavailable') {
         userMessage = 'Serviço indisponível. Verifique sua conexão e tente novamente.'
-      } else if (err.code === 'invalid-argument') {
-        userMessage = 'Dados inválidos. Verifique o console para detalhes.'
+      } else if (errorCode === 'invalid-argument') {
+        userMessage = 'Dados inválidos. Confira as informações do pedido.'
       }
 
       setStatus('error')
@@ -367,7 +353,7 @@ export default function OrderSection() {
                 maxLength={MAX_CONTACT_LENGTH}
                 placeholder="(41) 99999-9999"
                 value={contact}
-                onChange={(event) => setContact(sanitizeContact(event.target.value))}
+                onChange={(event) => setContact(formatPhoneNumber(event.target.value))}
                 onBlur={() => setContactTouched(true)}
                 disabled={status === 'loading'}
                 aria-describedby="order-contact-hint"

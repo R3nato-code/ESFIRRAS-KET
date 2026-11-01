@@ -75,18 +75,18 @@ function validOrder(
     items: [
       {
         id: 'carne',
-        name: 'Esfirra de carne',
+        name: 'Carne',
         category: 'salgadas',
         quantity: 2,
-        unitPrice: 800,
-        totalPrice: 1600,
+        unitPrice: 500,
+        totalPrice: 1000,
       },
     ],
     customerName: 'Maria',
     notes: '',
-    pickupLocation: 'Foxy Esfirras',
+    pickupLocation: 'Quadra do Colégio',
     totalItems: 2,
-    totalAmount: 1600,
+    totalAmount: 1000,
     status: 'pendente',
     createdAt: serverTimestamp(),
     ...overrides,
@@ -322,10 +322,95 @@ describe('criação pública de pedido', () => {
 
   it('nega tipo errado nos campos', async () => {
     await assertFails(
-      addDoc(collection(anonDb(), 'pedidos'), validOrder({ totalAmount: '1600' })),
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({ totalAmount: '1000' })),
     )
     await assertFails(
       addDoc(collection(anonDb(), 'pedidos'), validOrder({ customerName: 42 })),
+    )
+  })
+
+  it('nega item com preço adulterado ou total unitário inconsistente', async () => {
+    const item = {
+      id: 'carne',
+      name: 'Carne',
+      category: 'salgadas',
+      quantity: 2,
+      unitPrice: 1,
+      totalPrice: 2,
+    }
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        items: [item], totalAmount: 2,
+      })),
+    )
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        items: [{ ...item, unitPrice: 500, totalPrice: 2 }],
+        totalAmount: 2,
+      })),
+    )
+  })
+
+  it('nega quantidade fora do limite e campos extras no item', async () => {
+    const item = {
+      id: 'carne',
+      name: 'Carne',
+      category: 'salgadas',
+      quantity: 21,
+      unitPrice: 500,
+      totalPrice: 10500,
+    }
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        items: [item], totalItems: 21, totalAmount: 10500,
+      })),
+    )
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        items: [{
+          id: 'carne', name: 'Carne', category: 'salgadas',
+          quantity: 2, unitPrice: 500, totalPrice: 1000, extra: true,
+        }],
+      })),
+    )
+  })
+
+  it('nega total de pedido divergente da soma dos itens', async () => {
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({ totalAmount: 999 })),
+    )
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({ totalItems: 3 })),
+    )
+  })
+
+  it('nega item duplicado e local de retirada inválido', async () => {
+    const item = {
+      id: 'carne', name: 'Carne', category: 'salgadas',
+      quantity: 1, unitPrice: 500, totalPrice: 500,
+    }
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        items: [item, item], totalItems: 2, totalAmount: 1000,
+      })),
+    )
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        pickupLocation: '',
+      })),
+    )
+    await assertFails(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        pickupLocation: 'x'.repeat(121),
+      })),
+    )
+  })
+
+  it('aceita local de retirada configurado dentro do limite', async () => {
+    await assertSucceeds(
+      addDoc(collection(anonDb(), 'pedidos'), validOrder({
+        pickupLocation: 'Novo local de retirada',
+      })),
     )
   })
 })
@@ -442,6 +527,14 @@ describe('mudança de status pelo admin', () => {
     await assertFails(
       changeStatus(adminDb(), 'pedido-1', 'pendente', 'em_preparacao', {
         actor: { uid: 'outro-admin', email: ADMIN_EMAIL },
+      }),
+    )
+  })
+
+  it('nega e-mail de autor divergente do token autenticado', async () => {
+    await assertFails(
+      changeStatus(adminDb(), 'pedido-1', 'pendente', 'em_preparacao', {
+        actor: { uid: ADMIN_UID, email: 'outra-pessoa@example.com' },
       }),
     )
   })

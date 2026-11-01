@@ -5,6 +5,10 @@
    ================================================================== */
 
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from 'firebase/app-check'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 import { getAuth, type Auth } from 'firebase/auth'
 
@@ -32,6 +36,21 @@ if (missingKeys.length > 0) {
 export const firebaseApp: FirebaseApp = getApps().length
   ? getApps()[0]
   : initializeApp(firebaseConfig)
+
+/* App Check do painel: use a mesma chave Enterprise registrada
+   no Firebase App Check e autorizada para os domínios do projeto. */
+const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY?.trim()
+
+if (appCheckSiteKey) {
+  initializeAppCheck(firebaseApp, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  })
+} else if (import.meta.env.PROD) {
+  console.warn(
+    'Firebase App Check não configurado no painel. Defina VITE_FIREBASE_APPCHECK_SITE_KEY no ambiente de build.',
+  )
+}
 
 export const db: Firestore = getFirestore(firebaseApp)
 export const auth: Auth = getAuth(firebaseApp)

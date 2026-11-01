@@ -47,30 +47,48 @@ export function AdminAuthProvider({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let authCheckVersion = 0
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      const currentVersion = ++authCheckVersion
       setLoading(true)
       setError(null)
+      setIsAdmin(false)
+      setUser(firebaseUser)
 
       if (!firebaseUser) {
-        setUser(null)
-        setIsAdmin(false)
         setLoading(false)
         return
       }
 
-      setUser(firebaseUser)
-
       try {
         const result = await firebaseUser.getIdTokenResult(true)
-        setIsAdmin(result.claims.admin === true)
+
+        // Ignora respostas assíncronas de uma sessão/usuário anterior.
+        if (
+          currentVersion === authCheckVersion &&
+          auth.currentUser?.uid === firebaseUser.uid
+        ) {
+          setIsAdmin(result.claims.admin === true)
+        }
       } catch {
-        setIsAdmin(false)
+        if (
+          currentVersion === authCheckVersion &&
+          auth.currentUser?.uid === firebaseUser.uid
+        ) {
+          setIsAdmin(false)
+        }
       } finally {
-        setLoading(false)
+        if (currentVersion === authCheckVersion) {
+          setLoading(false)
+        }
       }
     })
 
-    return () => unsubscribe()
+    return () => {
+      authCheckVersion += 1
+      unsubscribe()
+    }
   }, [])
 
   const login = useCallback(

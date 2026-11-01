@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_STORAGE_BUCKET: string
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string
   readonly VITE_FIREBASE_APP_ID: string
+  /** Opcional até configurar reCAPTCHA v3 no Firebase App Check. */
+  readonly VITE_FIREBASE_APPCHECK_SITE_KEY?: string
 }
 
 interface ImportMeta {

@@ -62,8 +62,12 @@ async function main() {
     /* 1. Busca o usuário pelo e-mail. */
     const userRecord = await auth.getUserByEmail(email)
 
-    /* 2. Define a custom claim admin: true. */
-    await auth.setCustomUserClaims(userRecord.uid, { admin: true })
+    /* 2. Preserva outras custom claims e adiciona admin: true. */
+    const existingClaims = userRecord.customClaims ?? {}
+    await auth.setCustomUserClaims(userRecord.uid, {
+      ...existingClaims,
+      admin: true,
+    })
 
     console.log('✅ Claim admin concedida com sucesso.')
     console.log(`   Usuário: ${email}`)

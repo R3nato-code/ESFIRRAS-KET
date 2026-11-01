@@ -35,5 +35,8 @@
   "main": "index.js",
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7"
+  }
 }

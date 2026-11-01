@@ -1,5 +1,9 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
 import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from 'firebase/app-check'
+import {
   getFirestore,
   doc,
   setDoc,
@@ -57,6 +61,25 @@ if (!getApps().length) {
   app = initializeApp(firebaseConfig)
 } else {
   app = getApps()[0]
+}
+
+/* ------------------------------------------------------------------
+   Firebase App Check (reCAPTCHA Enterprise)
+   A chave do site é pública e opcional durante a configuração inicial.
+   Ative a enforcement no Console Firebase somente depois de validar
+   os dois domínios e confirmar métricas de tokens válidos.
+   ------------------------------------------------------------------ */
+const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY?.trim()
+
+if (appCheckSiteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  })
+} else if (import.meta.env.PROD) {
+  console.warn(
+    'Firebase App Check não configurado. Defina VITE_FIREBASE_APPCHECK_SITE_KEY no ambiente de build.',
+  )
 }
 
 /* ------------------------------------------------------------------

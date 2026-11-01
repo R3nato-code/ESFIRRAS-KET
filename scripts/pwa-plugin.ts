@@ -71,7 +71,7 @@ export function pwaPlugin(cacheName: string, publicAssets: string[]): Plugin {
         '    });',
         '  }));',
         '});',
-      ].join('\\n')
+      ].join('\n')
 
       this.emitFile({
         type: 'asset',
