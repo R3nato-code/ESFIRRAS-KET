@@ -5,6 +5,30 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
 
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # As 6 chaves abaixo ficam no painel do Render (Environment).
+      # `sync: false` = o Render pede os valores na criação do Blueprint
+      # e nunca os grava no repositório.
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+
+
+
+
+
+
   - type: web
     name: foxy-esfirras-admin
     runtime: static
