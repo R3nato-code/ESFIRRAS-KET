@@ -16,7 +16,7 @@ import {
 
 const MAX_PER_FLAVOR = 20
 
-const PICKUP_LOCATION = 'Escola Kennedy — Salas gêmeas, Bloco 2'
+const PICKUP_LOCATION = 'Quadra do Colégio'
 
 type OrderStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -511,10 +511,10 @@ export default function OrderSection() {
 
           <div className="order__place">
             <p className="order__place-eyebrow">Retirada</p>
-            <h3 className="order__place-title">Escola Kennedy</h3>
+            <h3 className="order__place-title">Quadra do Colégio</h3>
             <p className="order__place-line">
               <MapPin size={15} />
-              Salas gêmeas · Bloco 2
+              Ponto de encontro
             </p>
             <a
               className="order__place-link"
@@ -590,7 +590,7 @@ export default function OrderSection() {
                 </div>
                 <div>
                   <dt>Retirada</dt>
-                  <dd>Escola Kennedy · Bloco 2</dd>
+                  <dd>Quadra do Colégio</dd>
                 </div>
                 {confirmedOrder.paymentMethod && (
                   <div>

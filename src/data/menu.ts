@@ -57,6 +57,8 @@ export const menu: MenuItem[] = [
     accent: '#d98a5a',
     preco: 600,
   },
+// A esfirra de prestígio foi removida a pedido.
+/*
   {
     id: 'prestigio',
     name: 'Prestígio',
@@ -68,6 +70,7 @@ export const menu: MenuItem[] = [
     accent: '#f2e2b6',
     preco: 600,
   },
+*/
 ]
 
 export const categoryLabels: Record<MenuCategory, string> = {
