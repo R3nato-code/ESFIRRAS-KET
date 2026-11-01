@@ -5,11 +5,12 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
 
-      - type: web
+  - type: web
     name: foxy-esfirras-admin
     runtime: static
     buildCommand: cd admin && npm ci && npm run build
     staticPublishPath: admin/dist
+
     envVars:
       - key: NODE_VERSION
         value: "22"
