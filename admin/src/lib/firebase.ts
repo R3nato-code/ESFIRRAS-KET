@@ -1,7 +1,7 @@
 /* ==================================================================
    FIREBASE DO PAINEL
-   Mesmo projeto do site (esfirra-ket), mas autenticação e app próprios.
-   Falha cedo no build/dev se as 6 variáveis não estiverem presentes.
+   Mesmo projeto Firebase do site. A instância é selecionada pela
+   combinação de appId e projectId, sem assumir que getApps()[0] é correta.
    ================================================================== */
 
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
@@ -32,25 +32,59 @@ if (missingKeys.length > 0) {
   )
 }
 
-/* Idempotente para Hot Module Replacement. */
-export const firebaseApp: FirebaseApp = getApps().length
-  ? getApps()[0]
-  : initializeApp(firebaseConfig)
+/* Reutiliza somente uma instância que corresponda ao appId e projectId
+   configurados. Se já houver outro app no mesmo runtime, cria uma instância
+   nomeada para o painel em vez de reutilizar getApps()[0] indiscriminadamente. */
+const registeredApps = getApps()
+const existingFirebaseApp = registeredApps.find(
+  (app) =>
+    app.options.appId === firebaseConfig.appId &&
+    app.options.projectId === firebaseConfig.projectId,
+)
 
-/* App Check do painel: use a mesma chave Enterprise registrada
-   no Firebase App Check e autorizada para os domínios do projeto. */
+const adminAppName = 'foxy-esfirras-admin'
+const conflictingAdminApp = registeredApps.find(
+  (app) => app.name === adminAppName && app !== existingFirebaseApp,
+)
+
+if (conflictingAdminApp) {
+  throw new Error(
+    'Já existe uma instância Firebase chamada "foxy-esfirras-admin" ' +
+      'com uma configuração diferente. Verifique appId e projectId.',
+  )
+}
+
+export const firebaseApp: FirebaseApp =
+  existingFirebaseApp ??
+  initializeApp(
+    firebaseConfig,
+    registeredApps.length > 0 ? adminAppName : undefined,
+  )
+
+/* App Check precisa ser inicializado antes de obter Firestore/Auth.
+   Em produção, a chave é obrigatória: não deixa o painel operar silenciosamente
+   sem a camada de atestação. Em desenvolvimento, permite iniciar sem ela. */
 const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY?.trim()
 
-if (appCheckSiteKey) {
+if (!appCheckSiteKey) {
+  if (import.meta.env.PROD) {
+    throw new Error(
+      'Firebase App Check não configurado no painel. ' +
+        'Defina VITE_FIREBASE_APPCHECK_SITE_KEY no ambiente de build do serviço ADMIN.',
+    )
+  }
+
+  console.warn(
+    'Firebase App Check não configurado no painel. ' +
+      'Defina VITE_FIREBASE_APPCHECK_SITE_KEY no .env da raiz.',
+  )
+} else {
   initializeAppCheck(firebaseApp, {
     provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
     isTokenAutoRefreshEnabled: true,
   })
-} else if (import.meta.env.PROD) {
-  console.warn(
-    'Firebase App Check não configurado no painel. Defina VITE_FIREBASE_APPCHECK_SITE_KEY no ambiente de build.',
-  )
 }
 
+/* Os serviços são obtidos somente depois da inicialização do App Check. */
 export const db: Firestore = getFirestore(firebaseApp)
 export const auth: Auth = getAuth(firebaseApp)
